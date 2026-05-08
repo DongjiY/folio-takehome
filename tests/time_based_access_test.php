@@ -70,11 +70,12 @@ test('share creation stores availability and audit details', function () {
 
     $share = create_share((int) $doc['id'], 'scheduled@example.com', '2026-05-09 03:00:00', 'America/Los_Angeles');
 
-    $stmt = db()->prepare('SELECT available_at FROM shares WHERE id = ?');
+    $stmt = db()->prepare('SELECT available_at, shorthand_id FROM shares WHERE id = ?');
     $stmt->execute([$share['id']]);
     $row = $stmt->fetch();
     assert_true($row !== false, 'expected created share');
     assert_equals('2026-05-09 03:00:00', $row['available_at']);
+    assert_equals($share['shorthand_id'], $row['shorthand_id']);
 
     $stmt = db()->prepare('SELECT details FROM audit_log WHERE entity_type = ? AND entity_id = ? ORDER BY id DESC LIMIT 1');
     $stmt->execute(['share', $share['id']]);
@@ -82,6 +83,7 @@ test('share creation stores availability and audit details', function () {
     assert_true($audit !== false, 'expected audit row');
 
     $details = json_decode($audit['details'], true);
+    assert_equals($share['shorthand_id'], $details['shorthand_id'] ?? null);
     assert_equals('2026-05-09 03:00:00', $details['available_at'] ?? null);
     assert_equals('America/Los_Angeles', $details['timezone'] ?? null);
 });

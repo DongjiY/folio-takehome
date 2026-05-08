@@ -27,13 +27,9 @@ $stmt->execute([
 ]);
 $docId = (int) $pdo->lastInsertId();
 
-$token = random_token();
-$stmt = $pdo->prepare('
-    INSERT INTO shares (document_id, token, recipient_email, available_at)
-    VALUES (?, ?, ?, ?)
-');
-$stmt->execute([$docId, $token, 'recipient@example.com', utc_datetime_string()]);
+$share = create_share($docId, 'recipient@example.com', utc_datetime_string(), date_default_timezone_get());
 
 echo "Seeded db.sqlite.\n";
 echo "Admin:        http://localhost:8000/admin.php\n";
-echo "Sample share: http://localhost:8000/view.php?token={$token}\n";
+echo "Sample share: http://localhost:8000/view.php?s={$share['shorthand_id']}\n";
+echo "Legacy share: http://localhost:8000/view.php?token={$share['token']}\n";

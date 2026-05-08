@@ -43,6 +43,33 @@ function random_token(int $bytes = 16): string {
     return bin2hex(random_bytes($bytes));
 }
 
+function random_shorthand_suffix(int $length = 4): string {
+    $alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+    $suffix = '';
+
+    for ($i = 0; $i < $length; $i++) {
+        $suffix .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    }
+
+    return $suffix;
+}
+
+function share_shorthand_prefix(string $title): string {
+    $words = preg_split('/[^a-z0-9]+/', strtolower($title), -1, PREG_SPLIT_NO_EMPTY);
+    $prefixWords = array_slice($words ?: [], 0, 2);
+
+    if ($prefixWords === []) {
+        return 'document';
+    }
+
+    return implode('-', $prefixWords);
+}
+
+function generate_share_shorthand_id(string $title, ?callable $suffixGenerator = null): string {
+    $suffixGenerator = $suffixGenerator ?? 'random_shorthand_suffix';
+    return share_shorthand_prefix($title) . '-' . $suffixGenerator();
+}
+
 function utc_datetime_string(?DateTimeImmutable $time = null): string {
     $time = $time ?? new DateTimeImmutable('now');
     return $time->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
@@ -114,17 +141,83 @@ function share_is_available(?string $available_at, ?DateTimeImmutable $now = nul
     return $now->setTimezone(new DateTimeZone('UTC')) >= $available;
 }
 
-function create_share(int $document_id, string $recipient_email, string $available_at, string $timezone): array {
-    $token = random_token();
+function share_email_matches(string $submitted_email, string $recipient_email): bool {
+    return strtolower(trim($submitted_email)) === strtolower(trim($recipient_email));
+}
+
+function find_share_by_token(string $token): ?array {
     $stmt = db()->prepare('
-        INSERT INTO shares (document_id, token, recipient_email, available_at)
-        VALUES (?, ?, ?, ?)
+        SELECT d.*, s.recipient_email, s.available_at
+        FROM shares s
+        JOIN documents d ON d.id = s.document_id
+        WHERE s.token = ?
     ');
-    $stmt->execute([$document_id, $token, $recipient_email, $available_at]);
-    $shareId = (int) db()->lastInsertId();
+    $stmt->execute([$token]);
+    $share = $stmt->fetch();
+
+    return $share ?: null;
+}
+
+function find_share_by_shorthand_id(string $shorthand_id): ?array {
+    $stmt = db()->prepare('
+        SELECT d.*, s.recipient_email, s.available_at, s.shorthand_id
+        FROM shares s
+        JOIN documents d ON d.id = s.document_id
+        WHERE s.shorthand_id = ?
+    ');
+    $stmt->execute([trim($shorthand_id)]);
+    $share = $stmt->fetch();
+
+    return $share ?: null;
+}
+
+function find_share_by_shorthand_id_and_email(string $shorthand_id, string $email): ?array {
+    $share = find_share_by_shorthand_id($shorthand_id);
+
+    if ($share === null || !share_email_matches($email, $share['recipient_email'])) {
+        return null;
+    }
+
+    return $share;
+}
+
+function create_share(int $document_id, string $recipient_email, string $available_at, string $timezone, ?callable $suffixGenerator = null): array {
+    $docStmt = db()->prepare('SELECT title FROM documents WHERE id = ?');
+    $docStmt->execute([$document_id]);
+    $doc = $docStmt->fetch();
+    if (!$doc) {
+        throw new RuntimeException('Document not found.');
+    }
+
+    $token = random_token();
+    $shareId = null;
+    $shorthandId = null;
+
+    for ($attempt = 0; $attempt < 10; $attempt++) {
+        $shorthandId = generate_share_shorthand_id($doc['title'], $suffixGenerator);
+        $stmt = db()->prepare('
+            INSERT INTO shares (document_id, token, shorthand_id, recipient_email, available_at)
+            VALUES (?, ?, ?, ?, ?)
+        ');
+
+        try {
+            $stmt->execute([$document_id, $token, $shorthandId, $recipient_email, $available_at]);
+            $shareId = (int) db()->lastInsertId();
+            break;
+        } catch (PDOException $e) {
+            if (strpos($e->getMessage(), 'shares.shorthand_id') === false && strpos($e->getMessage(), 'shorthand_id') === false) {
+                throw $e;
+            }
+        }
+    }
+
+    if ($shareId === null || $shorthandId === null) {
+        throw new RuntimeException('Could not generate a unique readable share ID.');
+    }
 
     audit_log('create', 'share', $shareId, [
         'document_id' => $document_id,
+        'shorthand_id' => $shorthandId,
         'recipient_email' => $recipient_email,
         'available_at' => $available_at,
         'timezone' => $timezone,
@@ -133,6 +226,7 @@ function create_share(int $document_id, string $recipient_email, string $availab
     return [
         'id' => $shareId,
         'token' => $token,
+        'shorthand_id' => $shorthandId,
     ];
 }
 
