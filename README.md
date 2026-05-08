@@ -20,6 +20,16 @@ To run the tests:
 docker compose exec app php tests/test.php
 ```
 
+Schema changes are managed with reversible migrations:
+
+```
+docker compose exec app php migrate.php up
+docker compose exec app php migrate.php down
+docker compose exec app php migrate.php status
+```
+
+Add paired SQL files under `migrations/` using the format `001_description.up.sql` and `001_description.down.sql`. Fresh seeding applies all pending `up` migrations after loading the baseline `schema.sql`.
+
 You edit files on your host machine in your normal editor — the container has them mounted, so changes show up immediately on browser refresh.
 
 ## Background
