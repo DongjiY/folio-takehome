@@ -22,24 +22,28 @@ if (!$doc) {
 
 $error = null;
 $created_token = null;
+$created_available_message = null;
+$email = '';
+$available_at_input = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
+    $available_at_input = trim($_POST['available_at'] ?? '');
+    $timezone_input = trim($_POST['timezone'] ?? '');
+    $availability = normalize_share_available_at($available_at_input, $timezone_input);
+
     if ($email === '') {
         $error = 'Recipient email is required.';
+    } elseif ($availability['error'] !== null) {
+        $error = $availability['error'];
     } else {
-        $token = random_token();
-        $stmt = db()->prepare('
-            INSERT INTO shares (document_id, token, recipient_email)
-            VALUES (?, ?, ?)
-        ');
-        $stmt->execute([$doc['id'], $token, $email]);
-        $shareId = (int) db()->lastInsertId();
-        audit_log('create', 'share', $shareId, [
-            'document_id' => $doc['id'],
-            'recipient_email' => $email,
-        ]);
-        $created_token = $token;
+        $share = create_share((int) $doc['id'], $email, $availability['available_at'], $availability['timezone']);
+        $created_token = $share['token'];
+        $created_available_message = $available_at_input === ''
+            ? 'Available immediately.'
+            : 'Available at ' . str_replace('T', ' ', $available_at_input) . ' ' . $availability['timezone'] . '.';
+        $email = '';
+        $available_at_input = '';
     }
 }
 
@@ -59,6 +63,8 @@ render_header('Share · ' . $doc['title'], $staff);
     <div class="banner banner-success">
         Share link ready:
         <code>http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?token=<?= h($created_token) ?></code>
+        <br>
+        <?= h($created_available_message) ?>
     </div>
 <?php endif ?>
 
@@ -67,10 +73,23 @@ render_header('Share · ' . $doc['title'], $staff);
     <form method="post">
         <div class="form-field">
             <label for="email">Recipient email</label>
-            <input type="email" id="email" name="email" required>
+            <input type="email" id="email" name="email" value="<?= h($email) ?>" required>
         </div>
+        <div class="form-field">
+            <label for="available_at">Available at</label>
+            <input type="datetime-local" id="available_at" name="available_at" value="<?= h($available_at_input) ?>">
+            <p class="form-help">Leave blank to make this link available immediately.</p>
+        </div>
+        <input type="hidden" id="timezone" name="timezone" value="">
         <button type="submit" class="btn">Generate link</button>
     </form>
 </section>
+
+<script>
+    const timezoneInput = document.getElementById('timezone');
+    if (timezoneInput && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    }
+</script>
 
 <?php render_footer(); ?>

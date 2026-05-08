@@ -35,6 +35,12 @@ function assert_false($cond, string $msg = ''): void {
     }
 }
 
+function assert_equals($expected, $actual, string $msg = ''): void {
+    if ($expected !== $actual) {
+        throw new RuntimeException(($msg !== '' ? $msg . ': ' : '') . 'expected ' . var_export($expected, true) . ', got ' . var_export($actual, true));
+    }
+}
+
 function finish_tests(): void {
     global $pass, $fail;
     echo "\n{$pass} passed, {$fail} failed.\n";
