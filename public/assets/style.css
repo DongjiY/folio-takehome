@@ -140,6 +140,12 @@ a:hover { color: var(--accent-hover); }
     margin-bottom: 0.35rem;
 }
 
+.form-help {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    margin: 0.35rem 0 0;
+}
+
 .form-field input[type=text],
 .form-field input[type=email],
 .form-field input[type=datetime-local],

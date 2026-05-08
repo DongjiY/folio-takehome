@@ -29,10 +29,10 @@ $docId = (int) $pdo->lastInsertId();
 
 $token = random_token();
 $stmt = $pdo->prepare('
-    INSERT INTO shares (document_id, token, recipient_email)
-    VALUES (?, ?, ?)
+    INSERT INTO shares (document_id, token, recipient_email, available_at)
+    VALUES (?, ?, ?, ?)
 ');
-$stmt->execute([$docId, $token, 'recipient@example.com']);
+$stmt->execute([$docId, $token, 'recipient@example.com', utc_datetime_string()]);
 
 echo "Seeded db.sqlite.\n";
 echo "Admin:        http://localhost:8000/admin.php\n";
