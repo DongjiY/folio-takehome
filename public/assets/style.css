@@ -258,6 +258,25 @@ a:hover { color: var(--accent-hover); }
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.document-search {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.document-search-field {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.document-search-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 1px;
+}
+
 table.data {
     width: 100%;
     border-collapse: collapse;

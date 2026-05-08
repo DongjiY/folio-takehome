@@ -5,6 +5,7 @@ require __DIR__ . '/../lib/layout.php';
 
 $staff = current_staff();
 $error = null;
+$search = trim($_GET['q'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
@@ -27,12 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$docs = db()->query('
-    SELECT d.*, s.name AS creator_name
-    FROM documents d
-    JOIN staff s ON s.id = d.created_by
-    ORDER BY d.created_at DESC
-')->fetchAll();
+$docs = find_documents_for_admin($search);
 
 render_header('Admin', $staff);
 ?>
@@ -65,8 +61,20 @@ render_header('Admin', $staff);
 
 <section class="card">
     <h2 class="card-title">Documents</h2>
+    <form method="get" class="document-search">
+        <div class="form-field document-search-field">
+            <label for="q">Search by title</label>
+            <input type="text" id="q" name="q" value="<?= h($search) ?>" placeholder="Search document titles">
+        </div>
+        <div class="document-search-actions">
+            <button type="submit" class="btn">Search</button>
+            <?php if ($search !== ''): ?>
+                <a href="/admin.php" class="btn-link">Clear</a>
+            <?php endif ?>
+        </div>
+    </form>
     <?php if (empty($docs)): ?>
-        <p class="empty">No documents yet.</p>
+        <p class="empty"><?= $search === '' ? 'No documents yet.' : 'No documents match this search.' ?></p>
     <?php else: ?>
         <table class="data">
             <thead>
