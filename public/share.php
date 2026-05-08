@@ -21,7 +21,7 @@ if (!$doc) {
 }
 
 $error = null;
-$created_token = null;
+$created_shorthand_id = null;
 $created_available_message = null;
 $email = '';
 $available_at_input = '';
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = $availability['error'];
     } else {
         $share = create_share((int) $doc['id'], $email, $availability['available_at'], $availability['timezone']);
-        $created_token = $share['token'];
+        $created_shorthand_id = $share['shorthand_id'];
         $created_available_message = $available_at_input === ''
             ? 'Available immediately.'
             : 'Available at ' . str_replace('T', ' ', $available_at_input) . ' ' . $availability['timezone'] . '.';
@@ -59,10 +59,10 @@ render_header('Share · ' . $doc['title'], $staff);
     <div class="banner banner-error"><?= h($error) ?></div>
 <?php endif ?>
 
-<?php if ($created_token): ?>
+<?php if ($created_shorthand_id): ?>
     <div class="banner banner-success">
         Share link ready:
-        <code>http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?token=<?= h($created_token) ?></code>
+        <code>http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?s=<?= h($created_shorthand_id) ?></code>
         <br>
         <?= h($created_available_message) ?>
     </div>
