@@ -39,6 +39,41 @@ function audit_log(string $action, string $entity_type, int $entity_id, array $d
     ]);
 }
 
+function escape_like_pattern(string $value): string {
+    return strtr($value, [
+        '\\' => '\\\\',
+        '%' => '\\%',
+        '_' => '\\_',
+    ]);
+}
+
+function find_documents_for_admin(?string $query = null): array {
+    $query = trim($query ?? '');
+
+    $sql = '
+        SELECT d.*, s.name AS creator_name
+        FROM documents d
+        JOIN staff s ON s.id = d.created_by
+    ';
+    $params = [];
+
+    if ($query !== '') {
+        $sql .= "
+            WHERE d.title LIKE ? ESCAPE '\\'
+        ";
+        $params[] = '%' . escape_like_pattern($query) . '%';
+    }
+
+    $sql .= '
+        ORDER BY d.created_at DESC
+    ';
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll();
+}
+
 function random_token(int $bytes = 16): string {
     return bin2hex(random_bytes($bytes));
 }
